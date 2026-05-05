@@ -54,11 +54,66 @@ app.use(express.urlencoded({ extended: true }));
 /*             SHOPIFY AUTH & WEBHOOKS               */
 /* ------------------------------------------------ */
 
+const APP_HANDLE = process.env.SHOPIFY_APP_HANDLE || "staging-76";
+const EMBED_BLOCK_FILE = "whatsapp-chat-button";
+const EMBED_BLOCK_TYPE = `shopify://apps/${APP_HANDLE}/blocks/${EMBED_BLOCK_FILE}`;
+const SHOPIFY_API_VERSION = "2026-04";
+
+async function activateEmbedBlock(req, res, next) {
+  try {
+    const session = res.locals.shopify?.session;
+    if (!session?.accessToken) { next(); return; }
+
+    const headers = { "X-Shopify-Access-Token": session.accessToken };
+    const base = `https://${session.shop}/admin/api/${SHOPIFY_API_VERSION}`;
+
+    const themesRes = await fetch(`${base}/themes.json?role=main`, { headers });
+    const { themes } = await themesRes.json();
+    const themeId = themes?.[0]?.id;
+    if (!themeId) { next(); return; }
+
+    const assetRes = await fetch(
+      `${base}/themes/${themeId}/assets.json?asset[key]=config/settings_data.json`,
+      { headers }
+    );
+    if (!assetRes.ok) { next(); return; }
+    const { asset } = await assetRes.json();
+    const settings = JSON.parse(asset?.value || "{}");
+
+    const alreadyActive = Object.values(settings.current?.blocks || {})
+      .some((b) => b.type === EMBED_BLOCK_TYPE);
+    if (alreadyActive) { next(); return; }
+
+    if (!settings.current) settings.current = {};
+    if (!settings.current.blocks) settings.current.blocks = {};
+    const blockKey = `${EMBED_BLOCK_TYPE}/${Math.random().toString(36).slice(2, 10)}`;
+    settings.current.blocks[blockKey] = {
+      type: EMBED_BLOCK_TYPE,
+      settings: { phone_number: "", message: "" },
+      disabled: false,
+    };
+
+    await fetch(`${base}/themes/${themeId}/assets.json`, {
+      method: "PUT",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        asset: { key: "config/settings_data.json", value: JSON.stringify(settings, null, 2) },
+      }),
+    });
+
+    console.log(`[ZapChat] App embed activated for ${session.shop}`);
+  } catch (err) {
+    console.error("[ZapChat] Embed activation failed (non-fatal):", err.message);
+  }
+  next();
+}
+
 app.get(shopify.config.auth.path, shopify.auth.begin());
 
 app.get(
   shopify.config.auth.callbackPath,
   shopify.auth.callback(),
+  activateEmbedBlock,
   shopify.redirectToShopifyOrAppRoot()
 );
 

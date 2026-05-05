@@ -48,7 +48,7 @@ const shopify = shopifyApp({
     apiKey: process.env.SHOPIFY_API_KEY,
     apiSecretKey: process.env.SHOPIFY_API_SECRET,
     hostName: process.env.HOST.replace(/https?:\/\//, ""),
-    scopes: ["read_themes", "read_products"],
+    scopes: ["read_themes", "write_themes", "read_products"],
     billing: {
       Premium: {
         amount: 100.0,
