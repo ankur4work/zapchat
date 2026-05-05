@@ -65,7 +65,7 @@ const shopify = shopifyApp({
     path: "/api/webhooks",
   },
   sessionStorage: getSessionStorage(),
-  useOnlineTokens: true,
+  useOnlineTokens: false,
 });
 
 // Skip webhook registration
