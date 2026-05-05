@@ -11,6 +11,7 @@ import {
 } from "@shopify/polaris";
 import { useAppQuery, useAuthenticatedFetch } from "../hooks";
 import { useAppBridge } from "@shopify/app-bridge-react";
+import { Redirect } from "@shopify/app-bridge/actions";
 import { useNavigate } from "react-router-dom";
 
 export default function HomePage() {
@@ -38,10 +39,11 @@ export default function HomePage() {
     try {
       const response = await fetch("/api/getshop");
       const data = await response.json();
-      window.open(
-        `https://${data.shop}/admin/themes/current/editor?context=apps`,
-        "_blank"
-      );
+      const redirect = Redirect.create(app);
+      redirect.dispatch(Redirect.Action.REMOTE, {
+        url: `https://${data.shop}/admin/themes/current/editor?context=apps`,
+        newContext: true,
+      });
     } catch {
       setActivateError("Failed to open theme editor.");
     }
