@@ -50,6 +50,25 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Force SameSite=None;Secure on all cookies so OAuth state survives
+// cross-origin redirects in the Shopify admin iframe (Chrome blocks SameSite=Lax)
+app.use((req, res, next) => {
+  const _setHeader = res.setHeader.bind(res);
+  res.setHeader = (name, value) => {
+    if (name.toLowerCase() === "set-cookie") {
+      const cookies = (Array.isArray(value) ? value : [value]).map((c) => {
+        let out = c.replace(/;\s*SameSite=\w+/gi, "");
+        out += "; SameSite=None";
+        if (!/;\s*Secure/i.test(out)) out += "; Secure";
+        return out;
+      });
+      return _setHeader(name, cookies);
+    }
+    return _setHeader(name, value);
+  };
+  next();
+});
+
 /* ------------------------------------------------ */
 /*             SHOPIFY AUTH & WEBHOOKS               */
 /* ------------------------------------------------ */
