@@ -232,7 +232,27 @@ const BillingService = {
   },
 
   async cancel(session) {
-    return await cancelSubscription(session);
+    const { data } = await shopifyGraphQL(session, `{
+      currentAppInstallation {
+        activeSubscriptions { id name status }
+      }
+    }`);
+    const subs = data?.currentAppInstallation?.activeSubscriptions || [];
+    const sub = subs.find(s => s.status === "ACTIVE" && s.name === PREMIUM_PLAN);
+    if (!sub) throw new Error("No active subscription found to cancel");
+    const { data: cancelData } = await shopifyGraphQL(session, `
+      mutation appSubscriptionCancel($id: ID!) {
+        appSubscriptionCancel(id: $id) {
+          appSubscription { id status }
+          userErrors { field message }
+        }
+      }
+    `, { id: sub.id });
+    const result = cancelData?.appSubscriptionCancel;
+    if (result?.userErrors?.length) {
+      throw new Error(result.userErrors.map(e => e.message).join(", "));
+    }
+    return result?.appSubscription?.status;
   },
 };
 
