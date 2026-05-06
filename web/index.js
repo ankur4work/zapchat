@@ -350,7 +350,45 @@ app.get("/api/scroll-to-top/hasSubscription", async (req, res) => {
 /*            PROTECTED ROUTES (AUTH)                */
 /* ------------------------------------------------ */
 
-app.use("/api", shopify.validateAuthenticatedSession());
+app.use("/api", async (req, res, next) => {
+  try {
+    const sessionId = await shopify.api.session.getCurrentId({
+      isOnline: false,
+      rawRequest: req,
+      rawResponse: res,
+    });
+    if (!sessionId) {
+      const shop = req.query.shop;
+      if (shop) return res.redirect(`/api/auth?shop=${shop}`);
+      return res.status(401).json({ error: "No session" });
+    }
+    const session = await shopify.config.sessionStorage.loadSession(sessionId);
+    if (!session?.accessToken) {
+      const shop = sessionId.replace("offline_", "");
+      return res.redirect(`/api/auth?shop=${shop}`);
+    }
+    // Test token validity with a lightweight request
+    const testRes = await fetch(`https://${session.shop}/admin/api/2026-04/graphql.json`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": session.accessToken },
+      body: JSON.stringify({ query: "{ shop { name } }" }),
+    });
+    if (testRes.status === 403) {
+      // Token is stale (non-expiring) — delete it and force fresh OAuth
+      console.log("[Auth] Stale token detected, clearing session and re-authing:", sessionId);
+      await shopify.config.sessionStorage.deleteSession(sessionId);
+      const shop = sessionId.replace("offline_", "");
+      return res.redirect(`/api/auth?shop=${shop}`);
+    }
+    res.locals.shopify = { session };
+    next();
+  } catch (err) {
+    console.error("[Auth] Error:", err.message);
+    const shop = req.query.shop;
+    if (shop) return res.redirect(`/api/auth?shop=${shop}`);
+    res.status(401).json({ error: "Authentication failed" });
+  }
+});
 
 /* ------------------------------------------------ */
 /*           CREATE SUBSCRIPTION ROUTE               */
