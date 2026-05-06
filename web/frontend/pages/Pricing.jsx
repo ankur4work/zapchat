@@ -29,6 +29,10 @@ export default function Pricing() {
   const loadPlan = async () => {
     try {
       const res = await fetchAuth("/api/hasActiveSubscription");
+      if (res.status === 401) {
+        const d = await res.json().catch(() => ({}));
+        if (d.requiresReauth) { redirect.dispatch(Redirect.Action.REMOTE, { url: d.authUrl, newContext: false }); return; }
+      }
       const data = await res.json();
       setPlan(data?.tier === "premium" ? "premium" : "free");
     } catch {
@@ -40,19 +44,35 @@ export default function Pricing() {
 
   const changePlan = async (target) => {
     if (target === plan) return;
+    setBanner(null);
     try {
       setActionLoading(target);
       if (target === "free") {
-        await fetchAuth("/api/cancelSubscription");
-        await loadPlan();
-        setBanner({ status: "success", msg: "Free plan activated" });
+        const r = await fetchAuth("/api/cancelSubscription");
+        if (r.status === 401) {
+          const d = await r.json();
+          if (d.requiresReauth) { redirect.dispatch(Redirect.Action.REMOTE, { url: d.authUrl, newContext: false }); return; }
+        }
+        if (!r.ok) throw new Error("Failed to cancel subscription");
+        setPlan("free");
+        setBanner({ status: "success", msg: "Downgraded to Free plan" });
         return;
       }
       const res = await fetchAuth(`/api/createSubscription?plan=premium`);
+      if (res.status === 401) {
+        const d = await res.json();
+        if (d.requiresReauth) { redirect.dispatch(Redirect.Action.REMOTE, { url: d.authUrl, newContext: false }); return; }
+      }
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
       const data = await res.json();
       if (data.confirmationUrl) {
         redirect.dispatch(Redirect.Action.REMOTE, data.confirmationUrl);
+      } else if (data.isActiveSubscription) {
+        await loadPlan();
+        setBanner({ status: "success", msg: "Already subscribed to Premium" });
       }
+    } catch (err) {
+      setBanner({ status: "critical", msg: err.message || "Something went wrong. Please try again." });
     } finally {
       setActionLoading(null);
     }
