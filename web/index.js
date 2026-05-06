@@ -380,7 +380,8 @@ app.use("/api", async (req, res, next) => {
       const authUrl = `/api/auth?shop=${shop}`;
       // Requests with Authorization header are AJAX (app-bridge) — return JSON, not redirect
       const isAjax = !!req.headers["authorization"];
-      if (isAjax) return res.status(401).json({ requiresReauth: true, authUrl });
+      const fullAuthUrl = `${process.env.HOST}${authUrl}`;
+      if (isAjax) return res.status(401).json({ requiresReauth: true, authUrl: fullAuthUrl });
       return res.redirect(authUrl);
     }
     res.locals.shopify = { session };
