@@ -127,6 +127,17 @@ async function activateEmbedBlock(req, res, next) {
   next();
 }
 
+// Temp: clears stale sessions so fresh OAuth can run
+app.get("/api/clear-sessions", async (req, res) => {
+  try {
+    const collection = await connectToMongoDB();
+    const result = await collection.deleteMany({});
+    res.json({ deleted: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get(shopify.config.auth.path, shopify.auth.begin());
 
 app.get(
