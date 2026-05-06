@@ -34,14 +34,15 @@ export default function HomePage() {
 
   const isPlanLoading = isLoading || isFetching;
 
-  const openThemeEditor = async () => {
+  const openThemeEditor = () => {
     setActivateError(null);
     try {
-      const response = await fetch("/api/getshop");
-      const data = await response.json();
+      const params = new URLSearchParams(window.location.search);
+      const shop = params.get("shop");
+      if (!shop) { setActivateError("Could not determine shop."); return; }
       const redirect = Redirect.create(app);
       redirect.dispatch(Redirect.Action.REMOTE, {
-        url: `https://${data.shop}/admin/themes/current/editor?context=apps`,
+        url: `https://${shop}/admin/themes/current/editor?context=apps`,
         newContext: true,
       });
     } catch {
