@@ -350,32 +350,7 @@ app.get("/api/scroll-to-top/hasSubscription", async (req, res) => {
 /*            PROTECTED ROUTES (AUTH)                */
 /* ------------------------------------------------ */
 
-app.use("/api", async (req, res, next) => {
-  try {
-    const sessionId = await shopify.api.session.getCurrentId({
-      isOnline: false,
-      rawRequest: req,
-      rawResponse: res,
-    });
-    if (!sessionId) {
-      const shop = req.query.shop;
-      if (shop) return res.redirect(`/api/auth?shop=${shop}`);
-      return res.status(401).json({ error: "No session" });
-    }
-    const session = await shopify.config.sessionStorage.loadSession(sessionId);
-    if (!session?.accessToken) {
-      const shop = sessionId.replace("offline_", "");
-      return res.redirect(`/api/auth?shop=${shop}`);
-    }
-    res.locals.shopify = { session };
-    next();
-  } catch (err) {
-    console.error("[Auth] Session error:", err.message);
-    const shop = req.query.shop;
-    if (shop) return res.redirect(`/api/auth?shop=${shop}`);
-    res.status(401).json({ error: "Authentication failed" });
-  }
-});
+app.use("/api", shopify.validateAuthenticatedSession());
 
 /* ------------------------------------------------ */
 /*           CREATE SUBSCRIPTION ROUTE               */
