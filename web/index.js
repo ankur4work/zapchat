@@ -374,11 +374,14 @@ app.use("/api", async (req, res, next) => {
       body: JSON.stringify({ query: "{ shop { name } }" }),
     });
     if (testRes.status === 403) {
-      // Token is stale (non-expiring) — delete it and force fresh OAuth
-      console.log("[Auth] Stale token detected, clearing session and re-authing:", sessionId);
+      console.log("[Auth] Stale token detected, clearing session:", sessionId);
       await shopify.config.sessionStorage.deleteSession(sessionId);
       const shop = sessionId.replace("offline_", "");
-      return res.redirect(`/api/auth?shop=${shop}`);
+      const authUrl = `/api/auth?shop=${shop}`;
+      // AJAX requests need JSON; page navigations get a redirect
+      const isAjax = req.headers["accept"]?.includes("application/json") || req.headers["x-requested-with"];
+      if (isAjax) return res.status(401).json({ requiresReauth: true, authUrl });
+      return res.redirect(authUrl);
     }
     res.locals.shopify = { session };
     next();
