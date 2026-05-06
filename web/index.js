@@ -404,8 +404,12 @@ app.get("/api/cancelSubscription", async (req, res) => {
 
     const status = await BillingService.cancel(session);
 
-    await MetafieldService.deleteAppMetafield(session);
-    await MetafieldService.updateShopMetafield(session, "free");
+    try {
+      await MetafieldService.deleteAppMetafield(session);
+      await MetafieldService.updateShopMetafield(session, "free");
+    } catch (e) {
+      console.warn("Metafield update after cancel failed (non-fatal):", e.message);
+    }
 
     res.send({
       status,
