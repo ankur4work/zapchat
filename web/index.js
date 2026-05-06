@@ -30,7 +30,7 @@ const APP_NAMESPACE = "custom";
 const SHOP_METAFIELD_KEY = "zapchat-whatsapp-button";
 const APP_INSTALL_METAFIELD_KEY = "zapchat-whatsapp-button-premium";
 
-const IS_TEST = false;
+const IS_TEST = true;
 
 const APP_NAME = "zapchat-whatsapp-button";
 
@@ -366,24 +366,6 @@ app.use("/api", async (req, res, next) => {
     if (!session?.accessToken) {
       const shop = sessionId.replace("offline_", "");
       return res.redirect(`/api/auth?shop=${shop}`);
-    }
-    // Test token validity with a lightweight request
-    const testRes = await fetch(`https://${session.shop}/admin/api/2026-04/graphql.json`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": session.accessToken },
-      body: JSON.stringify({ query: "{ shop { name } }" }),
-    });
-    if (testRes.status === 403) {
-      const errBody = await testRes.json().catch(() => ({}));
-      console.log("[Auth] Token 403 body:", JSON.stringify(errBody));
-      await shopify.config.sessionStorage.deleteSession(sessionId);
-      const shop = sessionId.replace("offline_", "");
-      const authUrl = `/api/auth?shop=${shop}`;
-      // Requests with Authorization header are AJAX (app-bridge) — return JSON, not redirect
-      const isAjax = !!req.headers["authorization"];
-      const fullAuthUrl = `${process.env.HOST}${authUrl}`;
-      if (isAjax) return res.status(401).json({ requiresReauth: true, authUrl: fullAuthUrl });
-      return res.redirect(authUrl);
     }
     res.locals.shopify = { session };
     next();
