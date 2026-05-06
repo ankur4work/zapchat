@@ -374,7 +374,8 @@ app.use("/api", async (req, res, next) => {
       body: JSON.stringify({ query: "{ shop { name } }" }),
     });
     if (testRes.status === 403) {
-      console.log("[Auth] Stale token detected, clearing session:", sessionId);
+      const errBody = await testRes.json().catch(() => ({}));
+      console.log("[Auth] Token 403 body:", JSON.stringify(errBody));
       await shopify.config.sessionStorage.deleteSession(sessionId);
       const shop = sessionId.replace("offline_", "");
       const authUrl = `/api/auth?shop=${shop}`;
