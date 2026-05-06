@@ -30,7 +30,7 @@ const APP_NAMESPACE = "custom";
 const SHOP_METAFIELD_KEY = "zapchat-whatsapp-button";
 const APP_INSTALL_METAFIELD_KEY = "zapchat-whatsapp-button-premium";
 
-const IS_TEST = false;
+const IS_TEST = true;
 
 const APP_NAME = "zapchat-whatsapp-button";
 
