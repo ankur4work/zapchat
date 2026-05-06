@@ -350,7 +350,16 @@ app.get("/api/scroll-to-top/hasSubscription", async (req, res) => {
 /*            PROTECTED ROUTES (AUTH)                */
 /* ------------------------------------------------ */
 
-app.use("/api", shopify.validateAuthenticatedSession());
+app.use("/api", (req, res, next) => {
+  Promise.resolve(shopify.validateAuthenticatedSession()(req, res, next)).catch((err) => {
+    console.error("[Auth] validateAuthenticatedSession error:", err.message);
+    if (err?.networkStatusCode === 403 || err?.message?.includes("Forbidden") || err?.message?.includes("403")) {
+      const shop = req.query.shop || req.headers["x-shopify-shop-domain"];
+      if (shop) return res.redirect(`/api/auth?shop=${shop}`);
+    }
+    res.status(500).json({ error: err.message });
+  });
+});
 
 /* ------------------------------------------------ */
 /*           CREATE SUBSCRIPTION ROUTE               */
