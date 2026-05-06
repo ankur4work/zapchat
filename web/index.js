@@ -350,15 +350,31 @@ app.get("/api/scroll-to-top/hasSubscription", async (req, res) => {
 /*            PROTECTED ROUTES (AUTH)                */
 /* ------------------------------------------------ */
 
-app.use("/api", (req, res, next) => {
-  Promise.resolve(shopify.validateAuthenticatedSession()(req, res, next)).catch((err) => {
-    console.error("[Auth] validateAuthenticatedSession error:", err.message);
-    if (err?.networkStatusCode === 403 || err?.message?.includes("Forbidden") || err?.message?.includes("403")) {
-      const shop = req.query.shop || req.headers["x-shopify-shop-domain"];
+app.use("/api", async (req, res, next) => {
+  try {
+    const sessionId = await shopify.api.session.getCurrentId({
+      isOnline: false,
+      rawRequest: req,
+      rawResponse: res,
+    });
+    if (!sessionId) {
+      const shop = req.query.shop;
       if (shop) return res.redirect(`/api/auth?shop=${shop}`);
+      return res.status(401).json({ error: "No session" });
     }
-    res.status(500).json({ error: err.message });
-  });
+    const session = await shopify.config.sessionStorage.loadSession(sessionId);
+    if (!session?.accessToken) {
+      const shop = sessionId.replace("offline_", "");
+      return res.redirect(`/api/auth?shop=${shop}`);
+    }
+    res.locals.shopify = { session };
+    next();
+  } catch (err) {
+    console.error("[Auth] Session error:", err.message);
+    const shop = req.query.shop;
+    if (shop) return res.redirect(`/api/auth?shop=${shop}`);
+    res.status(401).json({ error: "Authentication failed" });
+  }
 });
 
 /* ------------------------------------------------ */
