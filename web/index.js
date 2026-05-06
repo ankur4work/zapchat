@@ -378,8 +378,8 @@ app.use("/api", async (req, res, next) => {
       await shopify.config.sessionStorage.deleteSession(sessionId);
       const shop = sessionId.replace("offline_", "");
       const authUrl = `/api/auth?shop=${shop}`;
-      // AJAX requests need JSON; page navigations get a redirect
-      const isAjax = req.headers["accept"]?.includes("application/json") || req.headers["x-requested-with"];
+      // Requests with Authorization header are AJAX (app-bridge) — return JSON, not redirect
+      const isAjax = !!req.headers["authorization"];
       if (isAjax) return res.status(401).json({ requiresReauth: true, authUrl });
       return res.redirect(authUrl);
     }
